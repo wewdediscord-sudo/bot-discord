@@ -14,14 +14,14 @@ def home():
 
 def run_web():
     port = int(os.environ.get('PORT', 8080))
-    aoo.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run_web)
     t.daemon = True
     t.start()
 
-TOKEN = os.getenv('DISCORD_TOKEN')
+TOKEN = os.getenv('TOKEN')
 
 PROTECTED_USER_ID = 378883673640009728
 TROLL_USER_ID = 688837162719903747
