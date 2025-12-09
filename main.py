@@ -6,6 +6,9 @@ import random
 from flask import Flask
 from threading import Thread
 
+# ==========================================
+# 1. CONFIGURATION DU SERVEUR WEB (KEEP ALIVE)
+# ==========================================
 app = Flask(__name__)
 
 @app.route('/')
@@ -13,6 +16,7 @@ def home():
     return "I am alive! WESBOT is running."
 
 def run_web():
+    # Utilise la variable d'environnement PORT fournie par l'hébergeur (Render)
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -21,13 +25,16 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-TOKEN = os.getenv('TOKEN')
+# ==========================================
+# 2. CONFIGURATION DU BOT DISCORD
+# ==========================================
 
-PROTECTED_USER_ID = 378883673640009728
+TOKEN = os.getenv('TOKEN') 
+
+PROTECTED_USER_ID = 378883673640009728 # TON ID (Bypass Vocal)
 TROLL_USER_IDS = [
     688837162719903747, 
-    422002207584419840, 
-    217364478432509952
+    422002207584419840
 ]
 TROLL_RESPONSES = [
     "Et puis quoi encore mdrrr ton tacos au cacaboudin là",
@@ -45,12 +52,28 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 kick_loop_users = {}
 
+# --- FONCTION DE VÉRIFICATION TROLL ---
 async def troll_check(ctx):
-    if ctx.author.id == TROLL_USER_ID:
+    if ctx.author.id in TROLL_USER_IDS: 
         response = random.choice(TROLL_RESPONSES)
         await ctx.send(response)
         return True
     return False
+
+# --- FONCTION DE VÉRIFICATION VOCALE (MODIFIÉE) ---
+async def is_user_in_voice_channel(ctx):
+    """Vérifie si l'auteur est en vocal, sauf s'il s'agit de l'ID protégé."""
+    
+    # Bypass pour l'utilisateur protégé
+    if ctx.author.id == PROTECTED_USER_ID:
+        return True
+        
+    # Vérification normale pour tous les autres utilisateurs
+    if not ctx.author.voice or not ctx.author.voice.channel:
+        await ctx.send("mdrrr tchorizooo tu las ou pas jsuis une galèreeee")
+        return False
+        
+    return True
 
 @bot.event
 async def on_ready():
@@ -79,10 +102,12 @@ async def kick_loop_task():
 
         await asyncio.sleep(0.5)
 
+# --- Commandes mises à jour ---
+
 @bot.command(name='kickloop')
 async def kick_loop(ctx, member: discord.Member):
-    if await troll_check(ctx):
-        return
+    if await troll_check(ctx): return 
+    if not await is_user_in_voice_channel(ctx): return # Inclut le bypass ID protégé
 
     if member.id == PROTECTED_USER_ID:
         await ctx.send("mdrrr oui oui aller")
@@ -97,8 +122,8 @@ async def kick_loop(ctx, member: discord.Member):
 
 @bot.command(name='unkick')
 async def unkick(ctx, member: discord.Member):
-    if await troll_check(ctx):
-        return
+    if await troll_check(ctx): return 
+    if not await is_user_in_voice_channel(ctx): return # Inclut le bypass ID protégé
 
     if member.id not in kick_loop_users:
         await ctx.send(f"❌ **{member.display_name}** n'est pas sous surveillance 'kickloop'.")
@@ -109,37 +134,33 @@ async def unkick(ctx, member: discord.Member):
 
 @bot.command(name='machine')
 async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceChannel = None, channel2: discord.VoiceChannel = None):
-    if await troll_check(ctx):
-        return
+    if await troll_check(ctx): return 
+    if not await is_user_in_voice_channel(ctx): return # Inclut le bypass ID protégé
 
+    # VÉRIFICATION CIBLE (DOIT ÊTRE EN VOCAL)
     if not member.voice or not member.voice.channel:
-        await ctx.send(f"❌ **{member.display_name}** n'est actuellement pas dans un salon vocal. Impossible de démarrer la 'machine'.")
+        await ctx.send(f"❌ **{member.display_name}** aiii il est pas dans un vocal!!")
         return
 
     original_channel = member.voice.channel
 
     if not channel1 or not channel2:
         voice_channels = [c for c in ctx.guild.voice_channels if c != original_channel]
-
         if len(voice_channels) < 2:
             await ctx.send("❌ Vous devez spécifier deux salons vocaux cibles valides (`!machine @utilisateur #channel1 #channel2`), ou il doit y avoir au moins deux autres salons vocaux disponibles sur le serveur.")
             return
 
-        if not channel1:
-            channel1 = voice_channels[0]
-        if not channel2:
-            if channel1 == voice_channels[0] and len(voice_channels) > 1:
-                channel2 = voice_channels[1]
-            elif channel1 == voice_channels[0] and len(voice_channels) == 1:
-                await ctx.send("❌ Veuillez spécifier deux salons différents. Un seul autre salon vocal a été trouvé.")
-                return
-            else:
-                channel2 = voice_channels[0]
-                if channel2 == channel1 and len(voice_channels) > 1:
-                    channel2 = voice_channels[1]
-                elif channel2 == channel1:
-                    await ctx.send("❌ Veuillez spécifier deux salons différents.")
-                    return
+        if not channel1: channel1 = voice_channels[0]
+        
+        channel2_found = False
+        for vc in voice_channels:
+            if vc.id != channel1.id:
+                channel2 = vc
+                channel2_found = True
+                break
+        if not channel2_found:
+            await ctx.send("❌ Veuillez spécifier deux salons différents.")
+            return
 
     await ctx.send("meeeeemmmmm meeemmmm machine vroum")
 
@@ -167,13 +188,15 @@ async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceCh
     except discord.HTTPException as e:
         await ctx.send(f"⚠️ Erreur finale lors du déplacement de **{member.display_name}**: {e}.")
 
+
+
 keep_alive()
 if TOKEN is None:
-    print("ERREUR: DISCORD_TOKEN non défini. Veuillez configurer le secret.")
+    print("ERREUR: TOKEN non défini. Veuillez configurer le secret 'TOKEN'.")
 else:
     try:
         bot.run(TOKEN)
     except discord.LoginFailure:
-        print("ERREUR: Le TOKEN est invalide. Veuillez vérifier le TOKEN dans le code.")
+        print("ERREUR: Le TOKEN est invalide.")
     except discord.PrivilegedIntentsRequired:
-        print("ERREUR: Les 'Intents' privilégiées (Server Members Intent) ne sont pas activées dans les paramètres de votre bot sur le portail développeur.")
+        print("ERREUR: Les 'Intents' privilégiées (Server Members Intent) ne sont pas activées sur le portail développeur.")
