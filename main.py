@@ -37,7 +37,10 @@ TROLL_USER_IDS = [
     422002207584419840
 ]
 
-WES_SPAMMER_ID = 460863520821739542 
+WES_SPAMMER_IDS = [
+    460863520821739542,
+    688837162719903747
+]
 WES_KEYWORDS = ["wes", "wesley", "Wes", "Wesley"]
 
 TROLL_RESPONSES = [
@@ -84,7 +87,7 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    if message.author.id == WES_SPAMMER_ID:
+    if message.author.id == WES_SPAMMER_IDS:
         content = message.content.lower()
         
         is_mentioning_me = f"<@{PROTECTED_USER_ID}>" in content
