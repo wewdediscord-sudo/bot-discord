@@ -24,7 +24,7 @@ def keep_alive():
 TOKEN = os.getenv('TOKEN')
 
 PROTECTED_USER_ID = 378883673640009728
-TROLL_USER_ID = 688837162719903747
+TROLL_USER_ID = 688837162719903747, 422002207584419840
 TROLL_RESPONSES = [
     "Et puis quoi encore mdrrr ton tacos au cacaboudin là",
     "Tg sale pute",
