@@ -36,6 +36,10 @@ TROLL_USER_IDS = [
     688837162719903747, 
     422002207584419840
 ]
+
+WES_SPAMMER_ID = 460863520821739542 
+WES_KEYWORDS = ["wes", "wesley", "Wes", "Wesley"]
+
 TROLL_RESPONSES = [
     "Et puis quoi encore mdrrr ton tacos au cacaboudin là",
     "Tg sale pute",
@@ -74,6 +78,28 @@ async def is_user_in_voice_channel(ctx):
         return False
         
     return True
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if message.author.id == WES_SPAMMER_ID:
+        content = message.content.lower()
+        
+        is_mentioning_me = f"<@{PROTECTED_USER_ID}>" in content
+        
+        is_triggering_word = any(keyword in content for keyword in WES_KEYWORDS)
+        
+        if is_mentioning_me or is_triggering_word:
+            try:
+                await message.channel.send("tg")
+                return # Bloque le traitement de la commande
+            except discord.Forbidden:
+                print("ouille")
+
+    # 3. Traite le message comme une commande (pour !kickloop, !machine, etc.)
+    await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
