@@ -96,7 +96,7 @@ async def on_message(message):
         
         if is_mentioning_me or is_triggering_word:
             try:
-                await message.channel.send("tg")
+                await message.channel.send("tg jeremerde ou t'es mute")
                 return # Bloque le traitement de la commande
             except discord.Forbidden:
                 print("ouille")
