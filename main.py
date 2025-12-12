@@ -32,6 +32,10 @@ def keep_alive():
 TOKEN = os.getenv('TOKEN') 
 
 PROTECTED_USER_ID = 378883673640009728 # TON ID (Bypass Vocal)
+
+# ID du salon où le message de départ sera envoyé
+LEAVE_CHANNEL_ID = 1442640695956471898
+
 TROLL_USER_IDS = [
     688837162719903747, 
     422002207584419840
@@ -52,7 +56,7 @@ TROLL_RESPONSES = [
 
 intents = discord.Intents.default()
 intents.voice_states = True
-intents.members = True
+intents.members = True # ESSENTIEL pour détecter les départs
 intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -67,7 +71,7 @@ async def troll_check(ctx):
         return True
     return False
 
-# --- FONCTION DE VÉRIFICATION VOCALE (MODIFIÉE) ---
+# --- FONCTION DE VÉRIFICATION VOCALE ---
 async def is_user_in_voice_channel(ctx):
     """Vérifie si l'auteur est en vocal, sauf s'il s'agit de l'ID protégé."""
     
@@ -82,12 +86,26 @@ async def is_user_in_voice_channel(ctx):
         
     return True
 
+# --- ÉVÉNEMENT : DÉPART D'UN MEMBRE ---
+@bot.event
+async def on_member_remove(member):
+    """Se déclenche quand quelqu'un quitte le serveur."""
+    channel = bot.get_channel(LEAVE_CHANNEL_ID)
+    
+    if channel:
+        # Envoie le message dans le salon spécifique
+        await channel.send(f"{member.mention} a trahis la honda 🕵️‍♂️ ou autre qui sait 😂")
+    else:
+        print(f"ERREUR : Impossible de trouver le salon avec l'ID {LEAVE_CHANNEL_ID}")
+
+# --- ÉVÉNEMENT : MESSAGES (ANTI-SPAM) ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
-    if message.author.id == WES_SPAMMER_IDS:
+    # CORRECTION ICI : Utilisation de 'in' au lieu de '==' car WES_SPAMMER_IDS est une liste
+    if message.author.id in WES_SPAMMER_IDS:
         content = message.content.lower()
         
         is_mentioning_me = f"<@{PROTECTED_USER_ID}>" in content
@@ -99,9 +117,9 @@ async def on_message(message):
                 await message.channel.send("tg jeremerde ou t'es mute")
                 return # Bloque le traitement de la commande
             except discord.Forbidden:
-                print("ouille")
+                print("ouille pas la permission")
 
-    # 3. Traite le message comme une commande (pour !kickloop, !machine, etc.)
+    # Traite le message comme une commande (pour !kickloop, !machine, etc.)
     await bot.process_commands(message)
 
 @bot.event
@@ -131,12 +149,12 @@ async def kick_loop_task():
 
         await asyncio.sleep(0.5)
 
-# --- Commandes mises à jour ---
+# --- Commandes ---
 
 @bot.command(name='kickloop')
 async def kick_loop(ctx, member: discord.Member):
     if await troll_check(ctx): return 
-    if not await is_user_in_voice_channel(ctx): return # Inclut le bypass ID protégé
+    if not await is_user_in_voice_channel(ctx): return 
 
     if member.id == PROTECTED_USER_ID:
         await ctx.send("mdrrr oui oui aller")
@@ -152,7 +170,7 @@ async def kick_loop(ctx, member: discord.Member):
 @bot.command(name='unkick')
 async def unkick(ctx, member: discord.Member):
     if await troll_check(ctx): return 
-    if not await is_user_in_voice_channel(ctx): return # Inclut le bypass ID protégé
+    if not await is_user_in_voice_channel(ctx): return 
 
     if member.id not in kick_loop_users:
         await ctx.send(f"❌ **{member.display_name}** n'est pas sous surveillance 'kickloop'.")
@@ -164,7 +182,7 @@ async def unkick(ctx, member: discord.Member):
 @bot.command(name='machine')
 async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceChannel = None, channel2: discord.VoiceChannel = None):
     if await troll_check(ctx): return 
-    if not await is_user_in_voice_channel(ctx): return # Inclut le bypass ID protégé
+    if not await is_user_in_voice_channel(ctx): return 
 
     # VÉRIFICATION CIBLE (DOIT ÊTRE EN VOCAL)
     if not member.voice or not member.voice.channel:
@@ -217,7 +235,9 @@ async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceCh
     except discord.HTTPException as e:
         await ctx.send(f"⚠️ Erreur finale lors du déplacement de **{member.display_name}**: {e}.")
 
-
+# ==========================================
+# LANCEMENT
+# ==========================================
 
 keep_alive()
 if TOKEN is None:
