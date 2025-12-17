@@ -51,17 +51,19 @@ TROLL_RESPONSES = [
     "Et puis quoi encore mdrrr ton tacos au cacaboudin là",
     "Tg sale pute",
     "beeeeehh ça marche pas",
-    "Tu me mettra un tacos à la mayo dans ma commande aussi connasse"
+    "Tu me mettra un tacos à la mayo dans ma commande aussi"
 ]
 
 intents = discord.Intents.default()
 intents.voice_states = True
-intents.members = True # ESSENTIEL pour détecter les départs
+intents.members = True 
 intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# Listes de surveillance
 kick_loop_users = {}
+muted_users = [] # Liste pour ceux qui doivent "fermer leur gueule"
 
 # --- FONCTION DE VÉRIFICATION TROLL ---
 async def troll_check(ctx):
@@ -93,35 +95,100 @@ async def on_member_remove(member):
     channel = bot.get_channel(LEAVE_CHANNEL_ID)
     
     if channel:
-        # Envoie le message dans le salon spécifique
         await channel.send(f"{member.mention} a trahis la honda 🕵️‍♂️ ou autre qui sait 😂")
     else:
         print(f"ERREUR : Impossible de trouver le salon avec l'ID {LEAVE_CHANNEL_ID}")
 
-# --- ÉVÉNEMENT : MESSAGES (ANTI-SPAM) ---
+# --- ÉVÉNEMENT : MESSAGES (LOGIQUE PRINCIPALE) ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
-    # CORRECTION ICI : Utilisation de 'in' au lieu de '==' car WES_SPAMMER_IDS est une liste
-    if message.author.id in WES_SPAMMER_IDS:
-        content = message.content.lower()
+    # 1. GESTION DU MUTE TEXTUEL ("Fermer ta gueule")
+    # Si l'utilisateur est dans la liste des mutés, on supprime son message direct
+    if message.author.id in muted_users:
+        try:
+            await message.delete()
+            return # On arrête tout ici, il ne peut rien faire
+        except discord.Forbidden:
+            pass # Si le bot ne peut pas supprimer, tant pis
+
+    content = message.content.lower()
+
+    # 2. DÉTECTION "TU VAS LA FERMER TA GUEULE"
+    if "tu vas la fermer ta gueule" in content and message.mentions:
+        victim = message.mentions[0]
+        # Ajout à la liste de mute textuel
+        if victim.id not in muted_users:
+            muted_users.append(victim.id)
         
+        # Mute Vocal
+        if victim.voice:
+            try:
+                await victim.edit(mute=True)
+            except: pass
+        
+        await message.channel.send(f" {victim.mention} FERME TA MERE")
+
+    # 3. DÉTECTION DES BAFFES
+    elif ("tiens une baffe" in content or "tiens 1 baffe" in content) and message.mentions:
+        await apply_baffes(message, message.mentions[0], 1)
+        
+    elif "tiens 2 baffes" in content and message.mentions:
+        await apply_baffes(message, message.mentions[0], 2)
+
+    elif "tiens 3 baffes" in content and message.mentions:
+        await apply_baffes(message, message.mentions[0], 3)
+
+    # 4. ANTI-SPAM WES
+    elif message.author.id in WES_SPAMMER_IDS:
         is_mentioning_me = f"<@{PROTECTED_USER_ID}>" in content
-        
         is_triggering_word = any(keyword in content for keyword in WES_KEYWORDS)
         
         if is_mentioning_me or is_triggering_word:
             try:
                 await message.channel.send("tg jeremerde ou t'es mute")
-                return # Bloque le traitement de la commande
+                return 
             except discord.Forbidden:
-                print("ouille pas la permission")
+                pass
 
-    # Traite le message comme une commande (pour !kickloop, !machine, etc.)
+    # Traite le message comme une commande normale
     await bot.process_commands(message)
 
+# --- FONCTION AUXILIAIRE POUR LES BAFFES ---
+async def apply_baffes(message, member, count):
+    if not member.voice or not member.voice.channel:
+        # Si la victime n'est pas en vocal, ça ne marche pas
+        await message.channel.send(f"La baffe part dans le vide... {member.display_name} n'est pas en vocal")
+        return
+
+    original_channel = member.voice.channel
+    # Récupérer tous les salons sauf l'actuel
+    available_channels = [c for c in message.guild.voice_channels if c != original_channel]
+
+    if not available_channels:
+        await message.channel.send("Pas assez de salons pour donner des baffes !")
+        return
+
+    msg = await message.channel.send("prends cette baffe")
+
+    # Boucle de déplacement
+    for i in range(count):
+        target_channel = random.choice(available_channels)
+        try:
+            await member.move_to(target_channel, reason="Prend ta baffe")
+            await asyncio.sleep(0.5) # Temps de la baffe
+        except:
+            break # Stop si erreur (déco)
+    
+    # Retour au bercail
+    try:
+        await member.move_to(original_channel, reason="Fin des baffes")
+    except:
+        pass
+
+# --- DEMARRAGE ---
 @bot.event
 async def on_ready():
     if bot.user:
@@ -138,18 +205,18 @@ async def kick_loop_task():
         for user_id, member in users_to_check:
             if member.voice and member.voice.channel:
                 try:
-                    print(f"Déconnexion forcée de {member.display_name} du salon {member.voice.channel.name}")
+                    print(f"Déconnexion forcée de {member.display_name}")
                     await member.move_to(None)
                 except discord.HTTPException as e:
-                    print(f"Erreur lors de la déconnexion de {member.display_name}: {e}")
+                    print(f"Erreur kickloop: {e}")
                 except Exception as e:
-                    print(f"Erreur inattendue pour {member.display_name}. Retrait de la liste. {e}")
+                    print(f"Erreur kickloop inattendue: {e}")
                     if user_id in kick_loop_users:
                         del kick_loop_users[user_id]
 
         await asyncio.sleep(0.5)
 
-# --- Commandes ---
+# --- COMMANDES ---
 
 @bot.command(name='kickloop')
 async def kick_loop(ctx, member: discord.Member):
@@ -172,6 +239,13 @@ async def unkick(ctx, member: discord.Member):
     if await troll_check(ctx): return 
     if not await is_user_in_voice_channel(ctx): return 
 
+    # --- NOUVEAU : VERIFICATION SELF-UNKICK ---
+    # Si l'auteur de la commande est celui qui est kickloopé
+    if ctx.author.id == member.id and member.id in kick_loop_users:
+        await ctx.send("mdr")
+        return
+    # ------------------------------------------
+
     if member.id not in kick_loop_users:
         await ctx.send(f"❌ **{member.display_name}** n'est pas sous surveillance 'kickloop'.")
         return
@@ -184,7 +258,6 @@ async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceCh
     if await troll_check(ctx): return 
     if not await is_user_in_voice_channel(ctx): return 
 
-    # VÉRIFICATION CIBLE (DOIT ÊTRE EN VOCAL)
     if not member.voice or not member.voice.channel:
         await ctx.send(f"❌ **{member.display_name}** aiii il est pas dans un vocal!!")
         return
@@ -194,7 +267,7 @@ async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceCh
     if not channel1 or not channel2:
         voice_channels = [c for c in ctx.guild.voice_channels if c != original_channel]
         if len(voice_channels) < 2:
-            await ctx.send("❌ Vous devez spécifier deux salons vocaux cibles valides (`!machine @utilisateur #channel1 #channel2`), ou il doit y avoir au moins deux autres salons vocaux disponibles sur le serveur.")
+            await ctx.send("❌ Il faut au moins 2 autres salons pour faire la machine.")
             return
 
         if not channel1: channel1 = voice_channels[0]
@@ -213,27 +286,23 @@ async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceCh
 
     for i in range(5):
         try:
-            await member.move_to(channel1, reason=f"Commande !machine ({i*2 + 1}/10)")
+            await member.move_to(channel1, reason=f"Machine ({i*2 + 1}/10)")
             await asyncio.sleep(0.5)
 
-            await member.move_to(channel2, reason=f"Commande !machine ({i*2 + 2}/10)")
+            await member.move_to(channel2, reason=f"Machine ({i*2 + 2}/10)")
             await asyncio.sleep(0.5)
 
-        except discord.HTTPException as e:
-            if member.voice is None:
-                await ctx.send(f" **{member.display_name}** a quitté le canal vocal. Machine arrêtée après {i*2 + 2} déplacements.")
-                return
-            await ctx.send(f"⚠️ Erreur lors du déplacement de **{member.display_name}**: {e}. Machine arrêtée.")
-            return
+        except discord.HTTPException:
+            break
 
     try:
         if member.voice is not None:
-            await member.move_to(original_channel, reason="Commande !machine terminée")
-            await ctx.send(f"✅ 'Machine' terminée ! **{member.display_name}** est de retour dans **{original_channel.name}**.")
+            await member.move_to(original_channel, reason="Machine terminée")
+            await ctx.send(f"✅ 'Machine' terminée !")
         else:
-            await ctx.send(f"✅ 'Machine' terminée. **{member.display_name}** a été déconnecté.")
-    except discord.HTTPException as e:
-        await ctx.send(f"⚠️ Erreur finale lors du déplacement de **{member.display_name}**: {e}.")
+            await ctx.send(f"✅ 'Machine' terminée (déco).")
+    except:
+        pass
 
 # ==========================================
 # LANCEMENT
@@ -248,4 +317,4 @@ else:
     except discord.LoginFailure:
         print("ERREUR: Le TOKEN est invalide.")
     except discord.PrivilegedIntentsRequired:
-        print("ERREUR: Les 'Intents' privilégiées (Server Members Intent) ne sont pas activées sur le portail développeur.")
+        print("ERREUR: Les 'Intents' privilégiées ne sont pas activées.")
