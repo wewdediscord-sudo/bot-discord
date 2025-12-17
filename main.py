@@ -129,7 +129,7 @@ async def on_message(message):
                 await victim.edit(mute=True)
             except: pass
         
-        await message.channel.send(f"C'est bon, {victim.mention} a été mute (vocal + écrit). Chut.")
+        await message.channel.send(f"{victim.mention} FERME TA MEEEEERE")
 
     # 3. DÉTECTION DES BAFFES
     elif ("tiens une baffe" in content or "tiens 1 baffe" in content) and message.mentions:
@@ -171,7 +171,7 @@ async def apply_baffes(message, member, count):
         await message.channel.send("Pas assez de salons pour donner des baffes !")
         return
 
-    msg = await message.channel.send(f"👊 Et bim ! {count} baffe(s) pour {member.display_name} !")
+    msg = await message.channel.send("prends cette baffe prends")
 
     # Boucle de déplacement
     for i in range(count):
@@ -266,7 +266,7 @@ async def unmute(ctx, member: discord.Member):
     try:
         if member.voice:
             await member.edit(mute=False)
-        await ctx.send(f"C'est bon, **{member.display_name}** a été unmute (vocal + écrit).")
+        await ctx.send(f"**{member.display_name}** a été unmute (vocal + écrit).")
     except Exception as e:
         # En cas d'erreur (ex: le bot n'a pas les perms ou l'user n'est pas en vocal)
         await ctx.send(f"J'ai enlevé le mute écrit, mais j'ai galéré sur le vocal.")
