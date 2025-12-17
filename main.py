@@ -51,7 +51,7 @@ TROLL_RESPONSES = [
     "Et puis quoi encore mdrrr ton tacos au cacaboudin là",
     "Tg sale pute",
     "beeeeehh ça marche pas",
-    "Tu me mettra un tacos à la mayo dans ma commande aussi"
+    "Tu me mettra un tacos à la mayo dans ma commande aussi connasse"
 ]
 
 intents = discord.Intents.default()
@@ -129,7 +129,7 @@ async def on_message(message):
                 await victim.edit(mute=True)
             except: pass
         
-        await message.channel.send(f" {victim.mention} FERME TA MERE")
+        await message.channel.send(f"C'est bon, {victim.mention} a été mute (vocal + écrit). Chut.")
 
     # 3. DÉTECTION DES BAFFES
     elif ("tiens une baffe" in content or "tiens 1 baffe" in content) and message.mentions:
@@ -160,7 +160,7 @@ async def on_message(message):
 async def apply_baffes(message, member, count):
     if not member.voice or not member.voice.channel:
         # Si la victime n'est pas en vocal, ça ne marche pas
-        await message.channel.send(f"La baffe part dans le vide... {member.display_name} n'est pas en vocal")
+        await message.channel.send(f"La baffe part dans le vide... {member.display_name} n'est pas en vocal.")
         return
 
     original_channel = member.voice.channel
@@ -171,7 +171,7 @@ async def apply_baffes(message, member, count):
         await message.channel.send("Pas assez de salons pour donner des baffes !")
         return
 
-    msg = await message.channel.send("prends cette baffe")
+    msg = await message.channel.send(f"👊 Et bim ! {count} baffe(s) pour {member.display_name} !")
 
     # Boucle de déplacement
     for i in range(count):
@@ -239,12 +239,11 @@ async def unkick(ctx, member: discord.Member):
     if await troll_check(ctx): return 
     if not await is_user_in_voice_channel(ctx): return 
 
-    # --- NOUVEAU : VERIFICATION SELF-UNKICK ---
-    # Si l'auteur de la commande est celui qui est kickloopé
+    # --- VERIFICATION SELF-UNKICK ---
     if ctx.author.id == member.id and member.id in kick_loop_users:
         await ctx.send("mdr")
         return
-    # ------------------------------------------
+    # --------------------------------
 
     if member.id not in kick_loop_users:
         await ctx.send(f"❌ **{member.display_name}** n'est pas sous surveillance 'kickloop'.")
@@ -252,6 +251,25 @@ async def unkick(ctx, member: discord.Member):
 
     del kick_loop_users[member.id]
     await ctx.send("liberableee")
+
+# --- NOUVELLE COMMANDE : UNMUTE ---
+@bot.command(name='unmute')
+async def unmute(ctx, member: discord.Member):
+    if await troll_check(ctx): return 
+    if not await is_user_in_voice_channel(ctx): return 
+
+    # 1. Retrait du mute textuel
+    if member.id in muted_users:
+        muted_users.remove(member.id)
+    
+    # 2. Retrait du mute vocal
+    try:
+        if member.voice:
+            await member.edit(mute=False)
+        await ctx.send(f"C'est bon, **{member.display_name}** a été unmute (vocal + écrit).")
+    except Exception as e:
+        # En cas d'erreur (ex: le bot n'a pas les perms ou l'user n'est pas en vocal)
+        await ctx.send(f"J'ai enlevé le mute écrit, mais j'ai galéré sur le vocal.")
 
 @bot.command(name='machine')
 async def machine_command(ctx, member: discord.Member, channel1: discord.VoiceChannel = None, channel2: discord.VoiceChannel = None):
