@@ -30,17 +30,16 @@ def keep_alive():
 # 2. CONFIGURATION MUSIQUE (YT-DLP & FFMPEG)
 # ==========================================
 # Options pour simuler un navigateur et éviter les blocages YouTube
+# ==========================================
+# 2. CONFIGURATION MUSIQUE (CORRIGÉE)
+# ==========================================
 YTDL_OPTIONS = {
-    'format': 'bestaudio/best',
+    'format': 'bestaudio/best', # Prend le meilleur son dispo sans conversion
     'noplaylist': 'True',
     'quiet': True,
-    'cookiefile': 'cookies.txt',
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '192',
-    }],
+    'cookiefile': 'cookies.txt', 
     'source_address': '0.0.0.0',
+    # On retire les 'postprocessors' qui forcent le MP3
 }
 
 # Options pour FFmpeg (reconnexion auto si coupure)
