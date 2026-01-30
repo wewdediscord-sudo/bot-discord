@@ -34,6 +34,7 @@ YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': 'True',
     'quiet': True,
+    'cookiefile': 'cookies.txt',
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'mp3',
