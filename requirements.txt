@@ -1,2 +1,5 @@
 discord.py
 flask
+google-generativeai
+yt-dlp
+PyNaCl
